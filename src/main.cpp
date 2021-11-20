@@ -17,14 +17,18 @@ enum RemoteCodes {
   Mode2 = 0x03, Mode3 = 0x04
 };
 
-// Definiowanie Piny modulow i przyciskow
+// Definiowanie Pinow modulow i przyciskow itp
 #define irTransPIN 1
 #define irRecvPIN 1
 #define UP 1
 #define DOWN 1
 #define SET 1
 
-// Definiowanie obiektow modulow i przyciskow
+// Definiowanie obiektow modulow i przyciskow, zmiennych
+float curTemp = 0;
+float mode1Temp = 0;
+float mode2Temp = 0;
+float mode3Temp = 0;
 
 void setup() {
   // put your setup code here, to run once:
