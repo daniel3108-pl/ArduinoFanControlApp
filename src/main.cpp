@@ -11,24 +11,31 @@
 #include <LiquidCrystal_I2C.h>
 #include <IRremote.h>
 
-// Kody pilota wentylatora
-enum RemoteCodes { 
-  OnOff = 0x01, Mode1 = 0x02,
-  Mode2 = 0x03, Mode3 = 0x04
-};
+// Kody podczerwieni pilota do wentylatora | rc = remote control
+#define rcOn    0x00
+#define rcOff   0x00
+#define rcMode1 0x00
+#define rcMode2 0x00
+#define rcMode3 0x00
 
 // Definiowanie Pinow modulow i przyciskow itp
-#define irTransPIN 1
-#define irRecvPIN 1
-#define UP 1
-#define DOWN 1
-#define SET 1
+#define irTransPIN  1
+#define irRecvPIN   1
+#define UP          1
+#define DOWN        1
+#define SET         1
 
 // Definiowanie obiektow modulow i przyciskow, zmiennych
-float curTemp = 0;
+float curTemp   = 0;
 float mode1Temp = 0;
 float mode2Temp = 0;
 float mode3Temp = 0;
+
+IRrecv irrecv(irRecvPIN);
+decode_results results;
+
+
+// Funkcje wykonujace dzialanie urzadzenia
 
 void setup() {
   // put your setup code here, to run once:
