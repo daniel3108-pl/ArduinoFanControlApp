@@ -41,7 +41,7 @@
 
 // Definiowanie obiektow modulow i przyciskow, zmiennych
 
-volatile unsigned int prevUiPage = 4; // poprzednia aktywna strona interface'u | 4 => Wartosc zabroniona, zeby sie wyswietlil za 1 razem ui
+unsigned int prevUiPage = 4; // poprzednia aktywna strona interface'u | 4 => Wartosc zabroniona, zeby sie wyswietlil za 1 razem ui
 volatile unsigned int curUiPage = 0; // aktualna strona interface'u
 unsigned int curFanMode = 0; // curFanMode = 0  => Wentylator jest wylaczony
 bool fanON = false; // Czy wetylator jest wlaczony czy nie 
@@ -142,7 +142,7 @@ void displayCurUIPage() {
   switch (curUiPage) {
     case 0:
       display.clear();
-      display.print("Current Temp");
+      display.print("Cur Temp | " + String(curFanMode) + "M");
       display.setCursor(0,1);
       display.print(String(curTemp) + " oC");
       prevUiPage = curUiPage;
@@ -175,28 +175,36 @@ void displayCurUIPage() {
 
 // Funkcja ktora kontroluje wiatrak na podstawie temperatury trybow uzytkownika
 void fanControl() {
-  float ctemp = roundFPrec(curTemp, 1);
+  float ctemp = roundFPrec(curTemp, 1); // 21 22 24 | 24.5, curFanMode = 3
 
-  if (ctemp >= mode1Temp && ctemp < mode2Temp && !fanON) { 
+  if (ctemp >= mode1Temp && ctemp < mode2Temp && curFanMode != 1 ) { 
       irSend.sendNEC(RC_ONOFF, 32);
       delay(50);
       irSend.sendNEC(RC_NEXTMODE, 32);
       delay(50);
       irSend.sendNEC(RC_NEXTMODE, 32);
       fanON = true;
+      curFanMode = 1;
+      return;
   }
-  else if (ctemp >= mode2Temp && ctemp < mode3Temp && fanON) {
+  else if (ctemp >= mode2Temp && ctemp < mode3Temp && curFanMode != 2) {
       irSend.sendNEC(RC_NEXTMODE, 32);
       delay(50);
+      curFanMode = 2;
+      return;
   }
-  else if (ctemp >= mode3Temp && fanON) { 
+  else if (ctemp >= mode3Temp && curFanMode != 3) { 
       irSend.sendNEC(RC_NEXTMODE, 32);
       delay(50);
+      curFanMode = 3;
+      return;
   }
-  else if (fanON){ 
+  else if (ctemp < mode1Temp && curFanMode != 0){ 
       irSend.sendNEC(RC_ONOFF, 32);
       delay(50);
       fanON = false;
+      curFanMode = 0;
+      return;
   }
 }
 
