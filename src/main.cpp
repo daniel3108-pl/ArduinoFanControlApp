@@ -1,18 +1,23 @@
-// Kod Zrodlowy - Projektu SMiW
 
-// Autor: Daniel Swietlik
-// Wydzial: Politechnika Slaska AEiI
-// Kierunek: Informatyka Katowice
-// Temat: Projekt urzadzenia kontrolujacego wentylator za pomoca podczerwieni
+/* 
+ Autor: Daniel Swietlik
+ Wydzial: Politechnika Slaska AEiI
+ Kierunek: Informatyka Katowice
 
-// Importowanie Bibliotek Arduino
+ Projekt SMIW
+ Temat: Projekt urzadzenia kontrolujacego wentylator za pomoca podczerwieni
+
+ Kod Zrodlowy oprogramowania dla urzadzenia
+*/
+
+
+// Include Bibliotek Arduino i modulow
 
 #include <Arduino.h>
 #include <DFRobot_SHT3x.h>
 #include <LiquidCrystal_I2C.h>
 #include <IRremote.h>
 #include <string.h>
-
 
 // Definiowanie kodow podczerwieni pilota do wentylatora | rc = remote control
 
@@ -36,24 +41,25 @@
 
 // Definiowanie obiektow modulow i przyciskow, zmiennych
 
-volatile unsigned int curUiPage = 0; // 0 => pokazuje aktualna temperature
+volatile unsigned int prevUiPage = 4; // poprzednia aktywna strona interface'u | 4 => Wartosc zabroniona, zeby sie wyswietlil za 1 razem ui
+volatile unsigned int curUiPage = 0; // aktualna strona interface'u
 unsigned int curFanMode = 0; // curFanMode = 0  => Wentylator jest wylaczony
+bool fanON = false; // Czy wetylator jest wlaczony czy nie 
 
 float curTemp = 0.0f; // Aktualna temperatura
 volatile float mode1Temp = 0.0f; // curFanMode = 1
 volatile float mode2Temp = 0.0f; // curFanMode = 2
 volatile float mode3Temp = 0.0f; // curFanMode = 3
-bool fanON = false;
 
+// Obiekty modulow
 
 IRsend irSend(IR_TRANS_PIN);
 LiquidCrystal_I2C display(LCD_I2C, LCD_COLS, LCD_ROWS);
 DFRobot_SHT3x temperatureSensor;
 
-// Funkcje wykonujace dzialanie urzadzenia
+// Naglowki funkcji wykonujace dzialanie urzadzenia
 
 float roundFPrec(float, int);
-// bool isButtonClicked(unsigned int pin);
 void setButtonHandler();
 void upButtonHandler();
 void downButtonHandler();
@@ -80,26 +86,19 @@ void setup() {
 }
   
 void loop(){
+  curTemp = temperatureSensor.getTemperatureC();
   fanControl();
   displayCurUIPage();
   delay(200);
 }
 
-// Button Handlery - Implementacja
-
-// bool isButtonClicked(unsigned int pin) {
-//   if (digitalRead(pin) == LOW) {
-//     delay(20);
-//     if (digitalRead(pin) == LOW)
-//       return true;
-//   }
-//   return false;
-// }
+// Button Handlery - Implementacja przerwan
 
 void setButtonHandler(){
   curUiPage++;
   curUiPage %= 4;
 }
+
 void upButtonHandler(){
   switch (curUiPage)
   {
@@ -116,6 +115,7 @@ void upButtonHandler(){
     break;
   }
 }
+
 void downButtonHandler(){
   switch (curUiPage)
   {
@@ -133,38 +133,47 @@ void downButtonHandler(){
   }
 }
 
+// Funkcja wyswietlajaca aktualna strone interfejsu uzytkownika na wyswietlaczu
 void displayCurUIPage() {
-  curTemp = temperatureSensor.getTemperatureC();
+
+  if (curUiPage == prevUiPage)
+    return;
+  
   switch (curUiPage) {
     case 0:
       display.clear();
       display.print("Current Temp");
       display.setCursor(0,1);
-      display.print(String(curTemp) + " *C");
+      display.print(String(curTemp) + " oC");
+      prevUiPage = curUiPage;
       break;
     case 1:
       display.clear();
       display.print("Set - Mode I");
       display.setCursor(0,1);
-      display.print(String(mode1Temp) + " *C");
+      display.print(String(mode1Temp) + " oC");
+      prevUiPage = curUiPage;
       break;
     case 2:
       display.clear();
       display.print("Set - Mode II");
       display.setCursor(0,1);
-      display.print(String(mode2Temp) + " *C");
+      display.print(String(mode2Temp) + " oC");
+      prevUiPage = curUiPage;
       break;
     case 3:
       display.clear();
       display.print("Set - Mode III");
       display.setCursor(0,1);
-      display.print(String(mode3Temp) + " *C");
+      display.print(String(mode3Temp) + " oC");
+      prevUiPage = curUiPage;
       break;
     default:
       break;
   }
 }
 
+// Funkcja ktora kontroluje wiatrak na podstawie temperatury trybow uzytkownika
 void fanControl() {
   float ctemp = roundFPrec(curTemp, 1);
 
@@ -176,11 +185,11 @@ void fanControl() {
       irSend.sendNEC(RC_NEXTMODE, 32);
       fanON = true;
   }
-  else if (ctemp >= mode2Temp && ctemp < mode3Temp) {
+  else if (ctemp >= mode2Temp && ctemp < mode3Temp && fanON) {
       irSend.sendNEC(RC_NEXTMODE, 32);
       delay(50);
   }
-  else if (ctemp >= mode3Temp) { 
+  else if (ctemp >= mode3Temp && fanON) { 
       irSend.sendNEC(RC_NEXTMODE, 32);
       delay(50);
   }
@@ -191,6 +200,7 @@ void fanControl() {
   }
 }
 
+// Prosta funkcja zaokraglajaca float'y
 float roundFPrec(float value, int prec) {
   int multipl = pow(10, prec);
   return (float)((int)(value * (float)multipl + 0.5)) / (float)multipl; 
