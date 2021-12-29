@@ -53,7 +53,7 @@ volatile float mode3Temp = 0.0f; // curFanMode = 3
 
 // Obiekty modulow
 
-IRsend irSend(IR_TRANS_PIN);
+IRsend irSend;
 LiquidCrystal_I2C display(LCD_I2C, LCD_COLS, LCD_ROWS);
 DFRobot_SHT3x temperatureSensor;
 
@@ -81,6 +81,7 @@ void setup() {
   display.init();
   display.print("Starting...");
   display.backlight();
+  temperatureSensor.begin();
   Serial.begin(9600);
 
 }
