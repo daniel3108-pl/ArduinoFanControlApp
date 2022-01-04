@@ -6,3 +6,10 @@
 
 #### Wykorzystałem do tego IDE - PlatformIO oraz biblioteki: DFRobot_SHT3x.h, IRremote.h oraz LiquidCrystal_I2C.h
 #### dla podpiętych do Arduino modułów.
+
+
+## Licence
+
+GPLv3
+
+© 2022 Daniel Świetlik All rights reserved.
