@@ -18,6 +18,7 @@
 #include <LiquidCrystal_I2C.h>
 #include <IRremote.h>
 #include <string.h>
+#include <EEPROM.h>
 
 // Definiowanie kodow podczerwieni pilota do wentylatora | rc = remote control
 
@@ -47,8 +48,14 @@ unsigned int curFanMode = 0; // curFanMode = 0  => Wentylator jest wylaczony
 bool fanON = false; // Czy wetylator jest wlaczony czy nie 
 
 float curTemp = 0.0f; // Aktualna temperatura
+
+int Mode1TempADR = 1;
 volatile float mode1Temp = 0.0f; // curFanMode = 1
+
+int Mode2TempADR = 2;
 volatile float mode2Temp = 0.0f; // curFanMode = 2
+
+int Mode3TempADR = 3;
 volatile float mode3Temp = 0.0f; // curFanMode = 3
 
 // Obiekty modulow
@@ -78,6 +85,10 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(DOWN), downButtonHandler, FALLING);
   attachInterrupt(digitalPinToInterrupt(SET), setButtonHandler, FALLING);
 
+  mode1Temp = EEPROM.read(Mode1TempADR);
+  mode2Temp = EEPROM.read(Mode2TempADR);
+  mode3Temp = EEPROM.read(Mode3TempADR);
+
   display.init();
   display.print("Starting...");
   display.backlight();
@@ -88,14 +99,25 @@ void setup() {
   
 void loop(){
   curTemp = temperatureSensor.getTemperatureC();
-  fanControl();
   displayCurUIPage();
+  fanControl();
   delay(200);
 }
 
 // Button Handlery - Implementacja przerwan
 
 void setButtonHandler(){
+  switch(curUiPage){
+    case 1:
+      EEPROM.write(curUiPage, mode1Temp);
+      break;
+    case 2:
+      EEPROM.write(curUiPage, mode2Temp);
+      break;
+    case 3:
+      EEPROM.write(curUiPage, mode3Temp);
+      break;
+  }
   curUiPage++;
   curUiPage %= 4;
 }
