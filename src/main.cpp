@@ -85,6 +85,12 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(DOWN), downButtonHandler, FALLING);
   attachInterrupt(digitalPinToInterrupt(SET), setButtonHandler, FALLING);
 
+  if (EEPROM.read(1023) != 'T') {
+    EEPROM.write(Mode1TempADR, 22.0f);
+    EEPROM.write(Mode2TempADR, 23.0f);
+    EEPROM.write(Mode3TempADR, 23.5f);
+  }
+
   mode1Temp = EEPROM.read(Mode1TempADR);
   mode2Temp = EEPROM.read(Mode2TempADR);
   mode3Temp = EEPROM.read(Mode3TempADR);
@@ -109,13 +115,13 @@ void loop(){
 void setButtonHandler(){
   switch(curUiPage){
     case 1:
-      EEPROM.write(curUiPage, mode1Temp);
+      EEPROM.write(Mode1TempADR, mode1Temp);
       break;
     case 2:
-      EEPROM.write(curUiPage, mode2Temp);
+      EEPROM.write(Mode2TempADR, mode2Temp);
       break;
     case 3:
-      EEPROM.write(curUiPage, mode3Temp);
+      EEPROM.write(Mode3TempADR, mode3Temp);
       break;
   }
   curUiPage++;
