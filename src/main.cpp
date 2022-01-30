@@ -28,10 +28,10 @@
 
 // Definiowanie Pinow modulow i przyciskow itp
 
-#define UP            0x0
-#define DOWN          0x1
-#define SET           0x2
-#define IR_TRANS_PIN  0x3
+#define UP            0x6
+#define DOWN          0x0
+#define SET           0x7
+#define IR_TRANS_PIN  0x5
 
 // Adresy I2C modulow lcd 2x16 i czujnika temperatury sht31-f
 
