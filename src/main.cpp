@@ -58,6 +58,8 @@ volatile float mode2Temp = 0.0f; // curFanMode = 2
 int Mode3TempADR = 3;
 volatile float mode3Temp = 0.0f; // curFanMode = 3
 
+volatile bool changeValue = false;
+
 // Obiekty modulow
 
 IRsend irSend;
@@ -86,7 +88,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(SET), setButtonHandler, FALLING);
 
   if (EEPROM.read(1023) != 'T') {
-    EEPROM.write(Mode1TempADR, 22.0f);
+    EEPROM.write(Mode1TempADR, 24.0f);
     EEPROM.write(Mode2TempADR, 23.0f);
     EEPROM.write(Mode3TempADR, 23.5f);
   }
@@ -107,6 +109,7 @@ void loop(){
   curTemp = temperatureSensor.getTemperatureC();
   displayCurUIPage();
   fanControl();
+  Serial.println(mode1Temp);
   delay(200);
 }
 
@@ -143,6 +146,7 @@ void upButtonHandler(){
   default:
     break;
   }
+  changeValue = true;
 }
 
 void downButtonHandler(){
@@ -160,12 +164,13 @@ void downButtonHandler(){
   default:
     break;
   }
+  changeValue = true;
 }
 
 // Funkcja wyswietlajaca aktualna strone interfejsu uzytkownika na wyswietlaczu
 void displayCurUIPage() {
 
-  if (curUiPage == prevUiPage)
+  if (curUiPage == prevUiPage and changeValue == false)
     return;
   
   switch (curUiPage) {
@@ -174,32 +179,30 @@ void displayCurUIPage() {
       display.print("Cur Temp | " + String(curFanMode) + "M");
       display.setCursor(0,1);
       display.print(String(curTemp) + " oC");
-      prevUiPage = curUiPage;
       break;
     case 1:
       display.clear();
       display.print("Set - Mode I");
       display.setCursor(0,1);
       display.print(String(mode1Temp) + " oC");
-      prevUiPage = curUiPage;
       break;
     case 2:
       display.clear();
       display.print("Set - Mode II");
       display.setCursor(0,1);
       display.print(String(mode2Temp) + " oC");
-      prevUiPage = curUiPage;
       break;
     case 3:
       display.clear();
       display.print("Set - Mode III");
       display.setCursor(0,1);
       display.print(String(mode3Temp) + " oC");
-      prevUiPage = curUiPage;
       break;
     default:
       break;
   }
+  changeValue = false;
+  prevUiPage = curUiPage;
 }
 
 // Funkcja ktora kontroluje wiatrak na podstawie temperatury trybow uzytkownika
@@ -207,29 +210,29 @@ void fanControl() {
   float ctemp = roundFPrec(curTemp, 1); // 21 22 24 | 24.5, curFanMode = 3
 
   if (ctemp >= mode1Temp && ctemp < mode2Temp && curFanMode != 1 ) { 
-      irSend.sendNEC(RC_ONOFF, 32);
+      irSend.sendNEC(RC_ONOFF, 32, 1u);
       delay(50);
-      irSend.sendNEC(RC_NEXTMODE, 32);
+      irSend.sendNEC(RC_NEXTMODE, 32, 1u);
       delay(50);
-      irSend.sendNEC(RC_NEXTMODE, 32);
+      irSend.sendNEC(RC_NEXTMODE, 32, 1u);
       fanON = true;
       curFanMode = 1;
       return;
   }
   else if (ctemp >= mode2Temp && ctemp < mode3Temp && curFanMode != 2) {
-      irSend.sendNEC(RC_NEXTMODE, 32);
+      irSend.sendNEC(RC_NEXTMODE, 32, 1u);
       delay(50);
       curFanMode = 2;
       return;
   }
   else if (ctemp >= mode3Temp && curFanMode != 3) { 
-      irSend.sendNEC(RC_NEXTMODE, 32);
+      irSend.sendNEC(RC_NEXTMODE, 32, 1u);
       delay(50);
       curFanMode = 3;
       return;
   }
   else if (ctemp < mode1Temp && curFanMode != 0){ 
-      irSend.sendNEC(RC_ONOFF, 32);
+      irSend.sendNEC(RC_ONOFF, 32, 1u);
       delay(50);
       fanON = false;
       curFanMode = 0;
