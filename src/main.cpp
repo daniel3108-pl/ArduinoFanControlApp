@@ -28,9 +28,9 @@
 
 // Definiowanie Pinow modulow i przyciskow itp
 
-#define UP            0x6
+#define UP            0x7
 #define DOWN          0x0
-#define SET           0x7
+#define SET           0x6
 #define IR_TRANS_PIN  0x5
 
 // Adresy I2C modulow lcd 2x16 i czujnika temperatury sht31-f
@@ -39,6 +39,8 @@
 #define LCD_I2C     0x27
 #define LCD_COLS    16
 #define LCD_ROWS    2  
+
+typedef unsigned int u_int;
 
 // Definiowanie obiektow modulow i przyciskow, zmiennych
 
@@ -59,6 +61,7 @@ int Mode3TempADR = 3;
 volatile float mode3Temp = 0.0f; // curFanMode = 3
 
 volatile bool changeValue = false;
+bool previousState = true;
 
 // Obiekty modulow
 
@@ -74,6 +77,7 @@ void upButtonHandler();
 void downButtonHandler();
 void displayCurUIPage();
 void fanControl();
+bool checkButtonFalling(u_int pin);
 
 // Implementacja funkcji urzadzenia
 
@@ -85,13 +89,13 @@ void setup() {
   
   attachInterrupt(digitalPinToInterrupt(UP), upButtonHandler, FALLING);
   attachInterrupt(digitalPinToInterrupt(DOWN), downButtonHandler, FALLING);
-  attachInterrupt(digitalPinToInterrupt(SET), setButtonHandler, FALLING);
+  //attachInterrupt(digitalPinToInterrupt(SET), setButtonHandler, FALLING);
 
-  if (EEPROM.read(1023) != 'T') {
-    EEPROM.write(Mode1TempADR, 24.0f);
-    EEPROM.write(Mode2TempADR, 23.0f);
-    EEPROM.write(Mode3TempADR, 23.5f);
-  }
+  // if (EEPROM.read(1023) != 'T') {
+  //   EEPROM.write(Mode1TempADR, 24.0f);
+  //   EEPROM.write(Mode2TempADR, 23.0f);
+  //   EEPROM.write(Mode3TempADR, 23.5f);
+  // }
 
   mode1Temp = EEPROM.read(Mode1TempADR);
   mode2Temp = EEPROM.read(Mode2TempADR);
@@ -108,27 +112,39 @@ void setup() {
 void loop(){
   curTemp = temperatureSensor.getTemperatureC();
   displayCurUIPage();
+  setButtonHandler();
   fanControl();
   Serial.println(mode1Temp);
-  delay(200);
+  delay(300);
 }
 
 // Button Handlery - Implementacja przerwan
-
-void setButtonHandler(){
-  switch(curUiPage){
-    case 1:
-      EEPROM.write(Mode1TempADR, mode1Temp);
-      break;
-    case 2:
-      EEPROM.write(Mode2TempADR, mode2Temp);
-      break;
-    case 3:
-      EEPROM.write(Mode3TempADR, mode3Temp);
-      break;
+bool checkButtonFalling(u_int pin){
+  if (previousState == HIGH and previousState != digitalRead(pin)) {
+    if (digitalRead(pin) == LOW) {
+      previousState = false;
+      return true;
+    }
   }
-  curUiPage++;
-  curUiPage %= 4;
+  previousState = true;
+  return false;
+}
+void setButtonHandler(){
+  if (checkButtonFalling(SET)) {
+      switch(curUiPage){
+        case 1:
+          EEPROM.write(Mode1TempADR, mode1Temp);
+          break;
+        case 2:
+          EEPROM.write(Mode2TempADR, mode2Temp);
+          break;
+        case 3:
+          EEPROM.write(Mode3TempADR, mode3Temp);
+          break;
+      }
+      curUiPage++;
+      curUiPage %= 4;
+  }
 }
 
 void upButtonHandler(){
