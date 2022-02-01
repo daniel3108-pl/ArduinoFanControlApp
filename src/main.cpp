@@ -23,7 +23,7 @@
 // Definiowanie kodow podczerwieni pilota do wentylatora | rc = remote control
 
 #define RC_ONOFF      0xFF807F
-#define RC_NEXTMODE   0xFF807F
+#define RC_NEXTMODE   0xFF20DF
 #define RC_REPEAT     0xFFFFFF
 
 // Definiowanie Pinow modulow i przyciskow itp
@@ -50,6 +50,7 @@ unsigned int curFanMode = 0; // curFanMode = 0  => Wentylator jest wylaczony
 bool fanON = false; // Czy wetylator jest wlaczony czy nie 
 
 float curTemp = 0.0f; // Aktualna temperatura
+float prevTemp = curTemp;
 
 int Mode1TempADR = 1;
 volatile float mode1Temp = 0.0f; // curFanMode = 1
@@ -61,7 +62,8 @@ int Mode3TempADR = 3;
 volatile float mode3Temp = 0.0f; // curFanMode = 3
 
 volatile bool changeValue = false;
-bool previousState = true;
+bool previousDownState = true;
+bool previousSetState = true;
 
 // Obiekty modulow
 
@@ -78,6 +80,7 @@ void downButtonHandler();
 void displayCurUIPage();
 void fanControl();
 bool checkButtonFalling(u_int pin);
+void sendFanSignal(u_int signal);
 
 // Implementacja funkcji urzadzenia
 
@@ -105,21 +108,31 @@ void setup() {
   display.print("Starting...");
   display.backlight();
   temperatureSensor.begin();
+  irSend.begin(IR_TRANS_PIN, true, 0U);
   Serial.begin(9600);
 
 }
   
 void loop(){
-  curTemp = temperatureSensor.getTemperatureC();
-  displayCurUIPage();
+  if (curUiPage == 0) {
+      curTemp = temperatureSensor.getTemperatureC();
+      if (roundFPrec(prevTemp, 1) != roundFPrec(curTemp, 1))
+        changeValue = true;
+      else
+        changeValue = false;
+      prevTemp = curTemp;
+      fanControl();
+  }
+  
   setButtonHandler();
-  fanControl();
+  displayCurUIPage();
   Serial.println(mode1Temp);
+  Serial.println(digitalRead(DOWN));
   delay(300);
 }
 
 // Button Handlery - Implementacja przerwan
-bool checkButtonFalling(u_int pin){
+bool checkButtonFalling(u_int pin, bool previousState){
   if (previousState == HIGH and previousState != digitalRead(pin)) {
     if (digitalRead(pin) == LOW) {
       previousState = false;
@@ -130,13 +143,18 @@ bool checkButtonFalling(u_int pin){
   return false;
 }
 void setButtonHandler(){
-  if (checkButtonFalling(SET)) {
+  if (checkButtonFalling(SET, previousSetState)) {
+    
       switch(curUiPage){
         case 1:
           EEPROM.write(Mode1TempADR, mode1Temp);
+          if (mode2Temp <= mode1Temp)
+            mode2Temp = mode1Temp + 0.5f;
           break;
-        case 2:
+        case 2:    
           EEPROM.write(Mode2TempADR, mode2Temp);
+          if (mode3Temp <= mode2Temp)
+              mode3Temp = mode2Temp + 0.5f;
           break;
         case 3:
           EEPROM.write(Mode3TempADR, mode3Temp);
@@ -144,6 +162,8 @@ void setButtonHandler(){
       }
       curUiPage++;
       curUiPage %= 4;
+      
+      changeValue = false;
   }
 }
 
@@ -166,21 +186,21 @@ void upButtonHandler(){
 }
 
 void downButtonHandler(){
-  switch (curUiPage)
-  {
-  case 1:
-    mode1Temp -= 0.5f;
-    break;
-  case 2:
-    mode2Temp -= 0.5f;
-    break;
-  case 3:
-    mode3Temp -= 0.5f;
-    break;
-  default:
-    break;
-  }
-  changeValue = true;
+    switch (curUiPage)
+    {
+    case 1:
+      mode1Temp -= 0.5f;
+      break;
+    case 2:
+      mode2Temp -= 0.5f;
+      break;
+    case 3:
+      mode3Temp -= 0.5f;
+      break;
+    default:
+      break;
+    }
+    changeValue = true;
 }
 
 // Funkcja wyswietlajaca aktualna strone interfejsu uzytkownika na wyswietlaczu
@@ -194,7 +214,7 @@ void displayCurUIPage() {
       display.clear();
       display.print("Cur Temp | " + String(curFanMode) + "M");
       display.setCursor(0,1);
-      display.print(String(curTemp) + " oC");
+      display.print(String(roundFPrec(curTemp, 1)) + " oC");
       break;
     case 1:
       display.clear();
@@ -225,35 +245,75 @@ void displayCurUIPage() {
 void fanControl() {
   float ctemp = roundFPrec(curTemp, 1); // 21 22 24 | 24.5, curFanMode = 3
 
-  if (ctemp >= mode1Temp && ctemp < mode2Temp && curFanMode != 1 ) { 
-      irSend.sendNEC(RC_ONOFF, 32, 1u);
+  if (ctemp >= mode1Temp && curFanMode == 0) { 
+      irSend.sendNEC(RC_ONOFF, 32);
+      delay(20);
+      irSend.sendNEC(RC_REPEAT, 32);
+      delay(20);
+      irSend.sendNEC(RC_REPEAT, 32);
       delay(50);
-      irSend.sendNEC(RC_NEXTMODE, 32, 1u);
+      irSend.sendNEC(RC_NEXTMODE, 32);
+      delay(20);
+      irSend.sendNEC(RC_REPEAT, 32);
+      delay(20);
+      irSend.sendNEC(RC_REPEAT, 32);
       delay(50);
-      irSend.sendNEC(RC_NEXTMODE, 32, 1u);
+      irSend.sendNEC(RC_NEXTMODE, 32);
+      delay(20);
+      irSend.sendNEC(RC_REPEAT, 32);
+      delay(20);
+      irSend.sendNEC(RC_REPEAT, 32);
+      delay(50);
       fanON = true;
       curFanMode = 1;
+      changeValue = true;
       return;
   }
-  else if (ctemp >= mode2Temp && ctemp < mode3Temp && curFanMode != 2) {
-      irSend.sendNEC(RC_NEXTMODE, 32, 1u);
+  else if (ctemp >= mode2Temp && curFanMode == 1) {
+      irSend.sendNEC(RC_NEXTMODE, 32);
       delay(50);
+      irSend.sendNEC(RC_REPEAT, 32);
+      delay(50);
+      irSend.sendNEC(RC_REPEAT, 32);
+      delay(50);
+
+      Serial.println("wyslano");
       curFanMode = 2;
+      changeValue = true;
       return;
   }
-  else if (ctemp >= mode3Temp && curFanMode != 3) { 
-      irSend.sendNEC(RC_NEXTMODE, 32, 1u);
+  else if (ctemp >= mode3Temp && curFanMode == 2) { 
+      irSend.sendNEC(RC_NEXTMODE, 32);
+      delay(50);
+      irSend.sendNEC(RC_REPEAT, 32);
+      delay(50);
+      irSend.sendNEC(RC_REPEAT, 32);
       delay(50);
       curFanMode = 3;
+      changeValue = true;
       return;
   }
-  else if (ctemp < mode1Temp && curFanMode != 0){ 
-      irSend.sendNEC(RC_ONOFF, 32, 1u);
+  else if (ctemp < mode1Temp && curFanMode == 0 && fanON){ 
+      irSend.sendNEC(RC_ONOFF, 32);
+      delay(50);
+      irSend.sendNEC(RC_REPEAT, 32);
+      delay(50);
+      irSend.sendNEC(RC_REPEAT, 32);
       delay(50);
       fanON = false;
       curFanMode = 0;
+      changeValue = true;
       return;
   }
+  // else if (curFanMode == 3 && ctemp < mode3Temp)
+  //   curFanMode--;
+  // else if (curFanMode == 2 && ctemp < mode2Temp)
+  //   curFanMode--;
+  // else if (curFanMode == 1 && ctemp < mode1Temp)
+  //   curFanMode--;
+
+
+  delay(200);
 }
 
 // Prosta funkcja zaokraglajaca float'y
@@ -262,3 +322,11 @@ float roundFPrec(float value, int prec) {
   return (float)((int)(value * (float)multipl + 0.5)) / (float)multipl; 
 }
 
+void sendFanSignal(u_int signal) {
+  irSend.sendNEC(signal, 32);
+  delay(50);
+  irSend.sendNEC(RC_REPEAT, 32);
+  delay(50);
+  irSend.sendNEC(RC_REPEAT, 32);
+  delay(50);
+}
