@@ -267,7 +267,7 @@ void fanControl() {
       changeValue = true;
       return;
   }
-  else if (ctemp >= mode2Temp && curFanMode == 1) {
+  else if (ctemp >= mode2Temp && curFanMode == 1 && fanON) {
       irSend.sendNEC(RC_NEXTMODE, 32);
       delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
@@ -280,7 +280,7 @@ void fanControl() {
       changeValue = true;
       return;
   }
-  else if (ctemp >= mode3Temp && curFanMode == 2) { 
+  else if (ctemp >= mode3Temp && curFanMode == 2 && fanON) { 
       irSend.sendNEC(RC_NEXTMODE, 32);
       delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
@@ -291,7 +291,7 @@ void fanControl() {
       changeValue = true;
       return;
   }
-  else if (ctemp < mode1Temp && curFanMode == 0 && fanON){ 
+  else if (ctemp < mode1Temp && fanON){ 
       irSend.sendNEC(RC_ONOFF, 32);
       delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
@@ -303,7 +303,7 @@ void fanControl() {
       changeValue = true;
       return;
   }
-  else if (curFanMode == 3 && ctemp < mode3Temp) {
+  else if (curFanMode == 3 && ctemp < mode3Temp && fanON) {
       for (int i = 0; i < 2; i++) {
           irSend.sendNEC(RC_NEXTMODE, 32);
           delay(50);
@@ -315,18 +315,7 @@ void fanControl() {
       
       curFanMode--;
   }
-  else if (curFanMode == 2 && ctemp < mode2Temp) {
-      for (int i = 0; i < 2; i++) {
-          irSend.sendNEC(RC_NEXTMODE, 32);
-          delay(50);
-          irSend.sendNEC(RC_REPEAT, 32);
-          delay(50);
-          irSend.sendNEC(RC_REPEAT, 32);
-          delay(50);
-      }
-      curFanMode--;
-  }
-  else if (curFanMode == 1 && ctemp < mode1Temp) {
+  else if (curFanMode == 2 && ctemp < mode2Temp && fanON) {
       for (int i = 0; i < 2; i++) {
           irSend.sendNEC(RC_NEXTMODE, 32);
           delay(50);
