@@ -126,8 +126,6 @@ void loop(){
   
   setButtonHandler();
   displayCurUIPage();
-  Serial.println(mode1Temp);
-  Serial.println(digitalRead(DOWN));
   delay(300);
 }
 
@@ -247,21 +245,21 @@ void fanControl() {
 
   if (ctemp >= mode1Temp && curFanMode == 0) { 
       irSend.sendNEC(RC_ONOFF, 32);
-      delay(20);
+      delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
-      delay(20);
+      delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
       delay(50);
       irSend.sendNEC(RC_NEXTMODE, 32);
-      delay(20);
+      delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
-      delay(20);
+      delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
       delay(50);
       irSend.sendNEC(RC_NEXTMODE, 32);
-      delay(20);
+      delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
-      delay(20);
+      delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
       delay(50);
       fanON = true;
@@ -305,12 +303,40 @@ void fanControl() {
       changeValue = true;
       return;
   }
-  // else if (curFanMode == 3 && ctemp < mode3Temp)
-  //   curFanMode--;
-  // else if (curFanMode == 2 && ctemp < mode2Temp)
-  //   curFanMode--;
-  // else if (curFanMode == 1 && ctemp < mode1Temp)
-  //   curFanMode--;
+  else if (curFanMode == 3 && ctemp < mode3Temp) {
+      for (int i = 0; i < 2; i++) {
+          irSend.sendNEC(RC_NEXTMODE, 32);
+          delay(50);
+          irSend.sendNEC(RC_REPEAT, 32);
+          delay(50);
+          irSend.sendNEC(RC_REPEAT, 32);
+          delay(50);
+      }
+      
+      curFanMode--;
+  }
+  else if (curFanMode == 2 && ctemp < mode2Temp) {
+      for (int i = 0; i < 2; i++) {
+          irSend.sendNEC(RC_NEXTMODE, 32);
+          delay(50);
+          irSend.sendNEC(RC_REPEAT, 32);
+          delay(50);
+          irSend.sendNEC(RC_REPEAT, 32);
+          delay(50);
+      }
+      curFanMode--;
+  }
+  else if (curFanMode == 1 && ctemp < mode1Temp) {
+      for (int i = 0; i < 2; i++) {
+          irSend.sendNEC(RC_NEXTMODE, 32);
+          delay(50);
+          irSend.sendNEC(RC_REPEAT, 32);
+          delay(50);
+          irSend.sendNEC(RC_REPEAT, 32);
+          delay(50);
+      }
+      curFanMode--;
+  }
 
 
   delay(200);
