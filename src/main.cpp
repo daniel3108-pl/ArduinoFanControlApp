@@ -80,7 +80,7 @@ void downButtonHandler();
 void displayCurUIPage();
 void fanControl();
 bool checkButtonFalling(u_int pin);
-void sendFanSignal(u_int signal);
+void sendNextModeSignal();
 
 // Implementacja funkcji urzadzenia
 
@@ -94,11 +94,11 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(DOWN), downButtonHandler, FALLING);
   //attachInterrupt(digitalPinToInterrupt(SET), setButtonHandler, FALLING);
 
-  // if (EEPROM.read(1023) != 'T') {
-  //   EEPROM.write(Mode1TempADR, 24.0f);
-  //   EEPROM.write(Mode2TempADR, 23.0f);
-  //   EEPROM.write(Mode3TempADR, 23.5f);
-  // }
+  if (EEPROM.read(Mode1TempADR) == 0) {
+    EEPROM.write(Mode1TempADR, 22.5f);
+    EEPROM.write(Mode2TempADR, 23.0f);
+    EEPROM.write(Mode3TempADR, 23.5f);
+  }
 
   mode1Temp = EEPROM.read(Mode1TempADR);
   mode2Temp = EEPROM.read(Mode2TempADR);
@@ -166,6 +166,7 @@ void setButtonHandler(){
 }
 
 void upButtonHandler(){
+  // Na podstawie aktualnej strony wybiera, ktora wartosc temperatury zwiększyć
   switch (curUiPage)
   {
   case 1:
@@ -180,37 +181,43 @@ void upButtonHandler(){
   default:
     break;
   }
-  changeValue = true;
+  changeValue = true; // ustalenie, ze zmienila sie wartosc, by wyrenderowac zmiane na lcd
+  delay(100);
 }
 
 void downButtonHandler(){
+  // Na podstawie aktualnej strony wybiera, ktora wartosc temperatury zmniejszyć
     switch (curUiPage)
     {
     case 1:
       mode1Temp -= 0.5f;
       break;
     case 2:
-      mode2Temp -= 0.5f;
+      mode2Temp -= mode2Temp - 0.5f > mode1Temp ? 0.5f : 0.0f;
       break;
     case 3:
-      mode3Temp -= 0.5f;
+      mode3Temp -= mode3Temp - 0.5f > mode2Temp? 0.5f : 0.0f;
       break;
     default:
       break;
     }
     changeValue = true;
+    delay(100);
 }
 
 // Funkcja wyswietlajaca aktualna strone interfejsu uzytkownika na wyswietlaczu
 void displayCurUIPage() {
 
+  // Sprawdza czy nastąpila zmiana wartości temperatury lub w ustawieniach
+  // lub zmieniła się storna, jeśli nie funkcja zwraca void.
   if (curUiPage == prevUiPage and changeValue == false)
     return;
   
+  // Switch odpowiedzialny za wypisanie odpowiedniego menu na lcd
   switch (curUiPage) {
     case 0:
       display.clear();
-      display.print("Cur Temp | " + String(curFanMode) + "M");
+      display.print("Cur Temp | " + (curFanMode != 0 ? (String(curFanMode)  + "M") : "OFF"));
       display.setCursor(0,1);
       display.print(String(roundFPrec(curTemp, 1)) + " oC");
       break;
@@ -235,63 +242,50 @@ void displayCurUIPage() {
     default:
       break;
   }
+  // ustawienie zmiennej, ze nie nastapila zmiana po wyrenderowaniu ekranu
   changeValue = false;
   prevUiPage = curUiPage;
 }
 
 // Funkcja ktora kontroluje wiatrak na podstawie temperatury trybow uzytkownika
 void fanControl() {
-  float ctemp = roundFPrec(curTemp, 1); // 21 22 24 | 24.5, curFanMode = 3
+  float ctemp = roundFPrec(curTemp, 1); 
 
+  // gdy poprzednio wentylator byl wylaczony i przekroczono granice temperatury dla 1 trybu
   if (ctemp >= mode1Temp && curFanMode == 0) { 
+      // wyslanie odpowiednich sygnalow by uruchomic i przejsc do pierwszego trybu
       irSend.sendNEC(RC_ONOFF, 32);
       delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
       delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
       delay(50);
-      irSend.sendNEC(RC_NEXTMODE, 32);
-      delay(50);
-      irSend.sendNEC(RC_REPEAT, 32);
-      delay(50);
-      irSend.sendNEC(RC_REPEAT, 32);
-      delay(50);
-      irSend.sendNEC(RC_NEXTMODE, 32);
-      delay(50);
-      irSend.sendNEC(RC_REPEAT, 32);
-      delay(50);
-      irSend.sendNEC(RC_REPEAT, 32);
-      delay(50);
+      sendNextModeSignal()
+      sendNextModeSignal()
       fanON = true;
-      curFanMode = 1;
-      changeValue = true;
+      curFanMode = 1; // ustawienie aktualnego poziomu mocy wentylatora
+      changeValue = true; // zaznaczenie ze zmienila sie wartosc trybu
+      // aby wyswietlacz wyrenderowal zmiane
       return;
   }
+  // gdy byl uruchomiony 1 tryb poprzednio i przekroczono granice 2 trybu
   else if (ctemp >= mode2Temp && curFanMode == 1 && fanON) {
-      irSend.sendNEC(RC_NEXTMODE, 32);
-      delay(50);
-      irSend.sendNEC(RC_REPEAT, 32);
-      delay(50);
-      irSend.sendNEC(RC_REPEAT, 32);
-      delay(50);
-
-      Serial.println("wyslano");
+      // przelączenie do następnego trybu prędkości na wentylatorze
+      sendNextModeSignal();
       curFanMode = 2;
       changeValue = true;
       return;
   }
+  // gdy byl uruchomiony 2 tryb poprzenio i przekroczono granice 3 trybu
   else if (ctemp >= mode3Temp && curFanMode == 2 && fanON) { 
-      irSend.sendNEC(RC_NEXTMODE, 32);
-      delay(50);
-      irSend.sendNEC(RC_REPEAT, 32);
-      delay(50);
-      irSend.sendNEC(RC_REPEAT, 32);
-      delay(50);
+      sendNextModeSignal();
       curFanMode = 3;
       changeValue = true;
       return;
   }
+  // gdy spadła temperatura ponizej trybu 1
   else if (ctemp < mode1Temp && fanON){ 
+      // wyłączenie wentylatora
       irSend.sendNEC(RC_ONOFF, 32);
       delay(50);
       irSend.sendNEC(RC_REPEAT, 32);
@@ -303,45 +297,37 @@ void fanControl() {
       changeValue = true;
       return;
   }
+  // Gdy spadła z temperatura poniej 3 trybu po poprzednim uruchomieniu go
   else if (curFanMode == 3 && ctemp < mode3Temp && fanON) {
-      for (int i = 0; i < 2; i++) {
-          irSend.sendNEC(RC_NEXTMODE, 32);
-          delay(50);
-          irSend.sendNEC(RC_REPEAT, 32);
-          delay(50);
-          irSend.sendNEC(RC_REPEAT, 32);
-          delay(50);
-      }
-      
+      sendNextModeSignal();
+      sendNextModeSignal();
+      changeValue = true;
+      // zmniejszenie zmiennej zapamiętującej aktualny stan
+      // mocy wentylatora
       curFanMode--;
   }
+  // Gdy spadła z temperatura poniej 2 trybu po poprzednim uruchomieniu go
   else if (curFanMode == 2 && ctemp < mode2Temp && fanON) {
-      for (int i = 0; i < 2; i++) {
-          irSend.sendNEC(RC_NEXTMODE, 32);
-          delay(50);
-          irSend.sendNEC(RC_REPEAT, 32);
-          delay(50);
-          irSend.sendNEC(RC_REPEAT, 32);
-          delay(50);
-      }
+      sendNextModeSignal();
+      sendNextModeSignal();
+      changeValue = true;
       curFanMode--;
   }
+}
 
-
-  delay(200);
+// Funkcja wysylajaca sygnal by wlaczyc nastepny tryb predkosci
+// w wentylatorze
+void sendNextModeSignal() {
+  irSend.sendNEC(RC_NEXTMODE, 32);
+  delay(50);
+  irSend.sendNEC(RC_REPEAT, 32);
+  delay(50);
+  irSend.sendNEC(RC_REPEAT, 32);
+  delay(50);
 }
 
 // Prosta funkcja zaokraglajaca float'y
 float roundFPrec(float value, int prec) {
   int multipl = pow(10, prec);
   return (float)((int)(value * (float)multipl + 0.5)) / (float)multipl; 
-}
-
-void sendFanSignal(u_int signal) {
-  irSend.sendNEC(signal, 32);
-  delay(50);
-  irSend.sendNEC(RC_REPEAT, 32);
-  delay(50);
-  irSend.sendNEC(RC_REPEAT, 32);
-  delay(50);
 }
